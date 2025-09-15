@@ -1,14 +1,33 @@
 const express = require('express');
 const app = express();
 
-// --- 카페24 인증 시작을 위한 코드 ---
+// --- 서버 확인용 메인 페이지 (수정됨) ---
+// 사용자가 앱의 기본 URL로 접속했을 때 보여주는 화면입니다.
+app.get('/', (req, res) => {
+  // 1. URL로 전달받은 mall_id를 변수에 저장합니다.
+  const mallId = req.query.mall_id;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  // 2. 인증 링크에 mall_id를 포함시켜 다음 단계로 전달합니다.
+  res.send(`
+    <h1>🎉 Cafe24 App Server is running!</h1>
+    <p>쇼핑몰 ID: ${mallId || 'ID not found'}</p>
+    <p>아래 링크를 클릭하여 카페24 인증을 시작하세요.</p>
+    <a href="/auth/cafe24?mall_id=${mallId}">Start Cafe24 Authentication</a>
+  `);
+});
+
+// --- 카페24 인증 시작을 위한 코드 (수정됨) ---
 // 사용자가 /auth/cafe24 경로로 접속하면 인증 절차를 시작합니다.
 app.get('/auth/cafe24', (req, res) => {
-  // 실제 앱에서는 사용자가 접속한 쇼핑몰 ID를 동적으로 받아와야 합니다.
-  // 예: const mallId = req.query.mall_id;
-  const mallId = 'hyominkim222'; // 테스트를 위해 임시로 고정
+  // 3. 이전 단계에서 전달받은 mall_id를 사용합니다. (하드코딩 제거)
+  const mallId = req.query.mall_id;
 
-  // 1. 카페24 개발자센터에서 선택한 8가지 권한(Scope) 목록입니다.
+  // mall_id가 없으면 에러 처리
+  if (!mallId) {
+    return res.status(400).send('Error: Mall ID is required.');
+  }
+
   const scopes = [
     'mall.read_application', 'mall.write_application',
     'mall.read_category', 'mall.write_category',
@@ -18,34 +37,19 @@ app.get('/auth/cafe24', (req, res) => {
     'mall.read_customer', 'mall.write_customer',
     'mall.read_store', 'mall.write_store',
     'mall.read_shipping', 'mall.write_shipping'
-  ].join(' '); // 각 권한을 띄어쓰기로 구분하여 하나의 문자열로 만듭니다.
+  ].join(' ');
 
   const params = new URLSearchParams({
     response_type: 'code',
-    client_id: process.env.CAFE24_CLIENT_ID, // Vercel 환경변수 사용
+    client_id: process.env.CAFE24_CLIENT_ID,
     redirect_uri: 'https://cafe24-auth-endpoint.vercel.app/api/callback',
-    state: 'RANDOM_STATE_STRING', // CSRF 방지를 위해 랜덤 문자열 사용을 권장합니다.
+    state: 'RANDOM_STATE_STRING',
     scope: scopes
   });
 
-  // 2. 최종 인증 URL을 생성합니다.
   const authorizationUrl = `https://${mallId}.cafe24api.com/api/v2/oauth/authorize?${params.toString()}`;
   
-  // 3. 사용자를 생성된 인증 URL로 이동시킵니다.
   res.redirect(authorizationUrl);
 });
 
-
-// --- 서버 확인용 메인 페이지 ---
-// 사용자가 앱의 기본 URL로 접속했을 때 보여주는 화면입니다.
-app.get('/', (req, res) => {
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(`
-    <h1>🎉 Cafe24 App Server is running!</h1>
-    <p>아래 링크를 클릭하여 카페24 인증을 시작하세요.</p>
-    <a href="/auth/cafe24">Start Cafe24 Authentication</a>
-  `);
-});
-
-// Vercel 환경에서 서버를 실행하기 위해 module.exports를 사용합니다.
 module.exports = app;
